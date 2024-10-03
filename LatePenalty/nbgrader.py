@@ -11,6 +11,9 @@ import pandas as pd
 import json
 from datetime import datetime
 import yaml
+import os
+import requests
+import nbformat
 
 # %% ../nbs/api/02_nbgrader_process_grade.ipynb 4
 class bcolors:
@@ -33,7 +36,7 @@ class nbgrader_grade:
                  course_id="", # Course ID, can be found in the course url
                  assignment_id=-1, # assignment id, can be found in the canvas assignment url
                  grades_fp="", # nbgrader csv grades exports file path 
-                 verbosity=0 # Controls the verbosity: 0 = Silent, 1 = print all messages
+                 verbosity=0, # Controls the verbosity: 0 = Silent, 1 = print all messages
                 ):
         "Initialize Canvas Group within a Group Set and its appropriate memberships"
         self.API_URL = API_URL
@@ -142,17 +145,107 @@ class nbgrader_grade:
             self.grades_by_assignment[assignment] = A
             self.late_days_by_assignment[assignment] = A["slip_day_used"]
     
-    def _calculate_late_days(self,
-                             df:pd.DataFrame # dataframe of a specific assignment
-                            )-> pd.Series: # late days
+    def check_git_user(user_name):
+        """Check that github user exists."""
+
+        page = requests.get('https://github.com/' + user_name, timeout=5)
+        return nbgrader_grade._check_page(page)
+
+
+    def check_git_repo(user_name, repo_name):
+        """Check that github repository exists (and is public)."""
+
+        page = requests.get('https://github.com/' + user_name + '/' + repo_name, timeout=5)
+        return nbgrader_grade._check_page(page)
+
+
+    def check_git_file(user_name, repo_name, f_name):
+        """Check that a particular file in a github repository exists.
+
+        Notes
+        -----
+        This will only work for public repos, and assumes that the file is on master.
+        """
+
+        page = requests.get('https://github.com/' + user_name + '/' \
+                            + repo_name + '/blob/master/' + f_name, timeout=5)
+        return nbgrader_grade._check_page(page)
+
+    def _check_page(page):
+            """Check status of web page.
+
+            Parameters
+            ----------
+            page : requests.models.Response() object
+            Web page object, returned from requests.get().
+
+            Returns
+            -------
+            boolean
+                Whether the web page exists.
+
+            Notes
+            -----
+            Approach to checking web page status code comes from here.
+                http://stackoverflow.com/questions/16778435/python-check-if-website-exists
+            """
+
+            if page.status_code < 400:
+                return True
+            else:
+                return False
+    
+    def grade_prs(student_details):
+        """
+        Checks if the PRs exist and grades student based on that
+        """
+        # Change points distribution of each rubric items
+        f = open('Pull_Requests.json')
+        pr = json.load(f)
+        PR_SCORE = 1
+        pr_details = {}
+        for n_iter in range(1, 10):
+            for pulls in pr:
+                for pull in pulls:
+                    try:
+                        text = (pull["title"] + str(pull["body"])).lower()
+                    except TypeError:
+                        print(pull)
+                        print(pull["title"])
+                        print(pull["body"])
+                    pr_details[pull["user"]["login"]] = pr_details.get(pull["user"]["login"], "") + text
+        for student in student_details:
+            if len(student_details[student]["github"]) == 0 or student_details[student]["github"] not in pr_details:
+                continue
+            last_2 = student_details[student]["pid"][-2:]
+            if last_2 in pr_details[student_details[student]["github"]]:
+                student_details[student]["score"] += PR_SCORE
+                return 1
+            else:
+                print(student, "PR not found", last_2, student_details[student], pr_details[student_details[student]["github"]])
+                return 0
+    
+    def _calculate_late_days(self, 
+                             df: pd.DataFrame # dataframe of a specific assignment
+                            ) -> pd.Series: # late days
         # parse the timestamp
         duedate_format = "%Y-%m-%d %H:%M:%S"
         timestamp_format = "%Y-%m-%d %H:%M:%S.%f"
         df["duedate"] = df["duedate"].apply(lambda x: datetime.strptime(x, duedate_format))
         df["timestamp"] = df["timestamp"].apply(lambda x: datetime.strptime(x, timestamp_format))
+
+        # Calculate the time difference between submission and due date
         late_time_delta = (df["timestamp"] - df["duedate"])
+
+        # Add 3-hour tolerance: Convert 3 hours to timedelta for comparison
+        tolerance = pd.to_timedelta(3, unit='h')
+
+        # Apply tolerance: Subtract 3 hours from the late time delta
+        adjusted_late_time = late_time_delta - tolerance
+
         # calculate late days, use ReLU
-        slip_day_used = late_time_delta.apply(lambda x: np.max([np.ceil(x.total_seconds()/60/60/24), 0]))
+        slip_day_used = adjusted_late_time.apply(lambda x: np.max([np.ceil(x.total_seconds()/60/60/24), 0]))
+    
         return slip_day_used
     
     def get_late_days(self,
@@ -214,18 +307,131 @@ class nbgrader_grade:
                        target_assignment:str, # target assignment name to grab the late time. Must in the column of nbgrader assignment csv 
                        passed_assignments:[str], # list of passed assignment. Must in the column of nbgrader assignment csv
                        post=True, # for testing purposes. Can hault the post operation
+                       A_1 = False, # Set True if grading A1 for COGS108
+                       git = False, # Set True if grading git part for A1, COGS108
+                       Quarter = "" # Set the quarter, for example, Fa23, Wi24, etc.
                       ):
         "Post grade to canvas with late penalty."
         if self.grades is None:
             raise ValueError("Nbgrader CSV has not been loaded. Please set it via self.load_grades_csv")
+            
+        # Load the GitHub scores if A_1 is True
+        student_details = None
+        
+        if git:
+            try:
+                f = open('Pull_Requests.json')
+                print('Pull Requests opened.')
+            except FileNotFoundError:
+                pr_link = "https://api.github.com/repos/COGS108/MyFirstPullRequest/pulls?state=all&per_page=100&page="
+                pull_requests = []
+                for n_iter in range(1, 10):
+                    r = requests.get(pr_link + str(n_iter))
+                    print(len(r.text))
+                    pulls = json.loads(r.text)
+                    pull_requests.append(pulls)
+
+                with open("Pull_Requests.json", 'w') as json_file:
+                    json.dump(pull_requests, json_file)
+
+                print("Pull Requests fetched and saved.")
+        
         for student_id, row in self.grades_by_assignment[target_assignment].iterrows():
             penalty = False
             # fetch useful information
             balance = self.calculate_credit_balance(passed_assignments, student_id)
             late_days = self.get_late_days(target_assignment, student_id)
             score = row["raw_score"]
-            # build message for each student
+            
             message = f"{target_assignment}: \n"
+            
+            if A_1:
+                #Initialize scores
+                user_score = 0
+                repo_score = 0
+                file_score = 0
+                pr_score = 0
+                
+                #read students' submissions and fetch Github ID:
+                home_dir = os.path.expanduser("~")
+                graded_dir = os.path.join(home_dir, "autograded")
+                A1_dir = os.path.join(graded_dir, student_id, f"A1_COGS108_{Quarter}")
+                try:
+                    for file in os.listdir(A1_dir):
+                        if file.endswith(".ipynb") and "A1" in file:
+                            file_path = os.path.join(A1_dir, file)
+                except FileNotFoundError:
+                    print(f"{student_id} does not have a submission for A1, skipped to the next student")
+
+                student_details = {}
+
+                nb = nbformat.read(file_path, as_version=4)
+                subs=['PID','github_username']
+                for cells in nb.cells:
+                    try:
+                        if cells['metadata']['nbgrader']['grade_id'] == 'cell-784114344a572182':
+                            cell = cells
+                            break
+                    except KeyError:
+                        continue
+                
+                test_list = cell['source'].split('\n')
+                res = [i for i in test_list if any(substring in i for substring in subs)]
+                print(res)
+                if(len(res)!=0):
+                    PID_string = [i for i in res if all(substring in i for substring in ['PID','='])] 
+                    github_string = [i for i in res if all(substring in i for substring in ['github_username','='])]
+                    if(len(PID_string)!=0 and len(github_string)!=0):
+                        PID = (PID_string[-1].split('='))[-1].strip().strip("'").strip('"') 
+                        github_username = (github_string[-1].split('='))[-1].strip().strip("'").strip('"')
+                        #print(student_id, PID, github_username)
+                        student_details[student_id] = {"pid": PID, "github": github_username, "score": 0}
+
+                #print(student_details)
+
+                try:
+                    if len(student_details[student_id]["github"]) == 0:
+                        print('GitHub ID does not exist')
+                        pass
+
+                    #User exists:
+                    if nbgrader_grade.check_git_user(student_details[student_id]["github"]):
+                        student_details[student_id]["score"] += 0.5
+                        #print(student_details)
+                        user_score = 0.5
+
+                    #Repo exists:
+                    if nbgrader_grade.check_git_repo(student_details[student_id]["github"], "COGS108_repo"):
+                        student_details[student_id]["score"] += 0.5
+                        #print(student_details)
+                        repo_score = 0.5
+
+                    #Files exist:
+                    is_gitignore = nbgrader_grade.check_git_file(student_details[student_id]["github"], "COGS108_repo", ".gitignore")
+                    is_readme = nbgrader_grade.check_git_file(student_details[student_id]["github"], "COGS108_repo", "README")
+                    is_readme = is_readme or nbgrader_grade.check_git_file(student_details[student_id]["github"], "COGS108_repo", "README.txt")
+                    is_readme = is_readme or nbgrader_grade.check_git_file(student_details[student_id]["github"], "COGS108_repo", "README.md")
+                    if is_gitignore and is_readme:
+                        student_details[student_id]["score"] += 0.5
+                        #print(student_details)
+                        file_score = 0.5
+
+                    #Pull requests:
+                    pr_score = nbgrader_grade.grade_prs(student_details)
+
+                    score += student_details[student_id]["score"]
+
+                    message += f"user_exists_score: {user_score},\n"
+                    message += f"repo_exists_score: {repo_score},\n"
+                    message += f"files_exist_score: {file_score},\n"
+                    message += f"pull_request_score: {pr_score}.\n"
+
+                # build message for each student
+                except KeyError:
+                    print('User does not exist, skipped grading git.')
+                    message += f"No information provided in assignment, 0 automatically assigned for git part.\n"
+                    pass
+            
             if late_days > 0:
                 # means late submission. Check remaining slip day
                 message += f"Late Submission: {int(late_days)} Days Late\n"
@@ -264,4 +470,3 @@ class nbgrader_grade:
                       f"is: \n{bcolors.OKGREEN+message+bcolors.ENDC}\n"
                       f"The score is {bcolors.OKGREEN}{score}{bcolors.ENDC}\n\n"
                      )
-        

@@ -16,6 +16,8 @@ dependencies:
   - partd
   - bokeh
   - nbdev
+  - requests
+  - nbformat
   - gh
   - pip
   - pip:
