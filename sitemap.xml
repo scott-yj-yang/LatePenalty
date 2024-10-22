@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://scott-yj-yang.github.io/LatePenalty/tutorial/gradescope late penalty tutorial.html</loc>
+    <lastmod>2024-10-22T23:12:38.042Z</lastmod>
+  </url>
+  <url>
+    <loc>https://scott-yj-yang.github.io/LatePenalty/api/gradescope_process_grade.html</loc>
+    <lastmod>2024-10-22T23:12:38.122Z</lastmod>
+  </url>
+  <url>
+    <loc>https://scott-yj-yang.github.io/LatePenalty/index.html</loc>
+    <lastmod>2024-10-22T23:12:38.006Z</lastmod>
+  </url>
+  <url>
+    <loc>https://scott-yj-yang.github.io/LatePenalty/api/nbgrader_process_grade.html</loc>
+    <lastmod>2024-10-22T23:12:38.154Z</lastmod>
+  </url>
+  <url>
+    <loc>https://scott-yj-yang.github.io/LatePenalty/tutorial/nbgrader late penalty tutorial.html</loc>
+    <lastmod>2024-10-22T23:12:38.122Z</lastmod>
+  </url>
+</urlset>
