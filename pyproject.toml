@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "LatePenalty"
+version = "0.1.0"
+description = "Apply Late Penalty to Gradescope and nbgrader Submissions on Canvas"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.12"
+authors = [
+    { name = "Scott Yang", email = "yuy004@ucsd.edu" },
+]
+keywords = ["canvas", "gradescope", "nbgrader", "late-penalty", "education"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: Apache Software License",
+]
+dependencies = [
+    "pandas",
+    "numpy",
+    "canvasapi",
+    "pyyaml",
+    "requests",
+    "nbformat",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+docs = [
+    "mkdocs-material",
+    "mkdocstrings[python]",
+    "mkdocs-jupyter",
+]
+
+[project.urls]
+Homepage = "https://github.com/scott-yj-yang/LatePenalty"
+Documentation = "https://scott-yj-yang.github.io/LatePenalty"
+Repository = "https://github.com/scott-yj-yang/LatePenalty"

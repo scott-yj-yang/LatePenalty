@@ -1,7 +1,0 @@
-student_1:
-    allowed_late_days: 7
-    reasons: sickness
-
-student_3:
-    allowed_late_days: 10
-    reasons: family issue
