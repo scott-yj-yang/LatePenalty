@@ -327,11 +327,11 @@ class gradescope_grade:
     def post_to_canvas(self,
                        target_assignment:str,
                        passed_assignments:List[str],
-                       components=[],
+                       components=None,
                        total_credit=120,
                        post=False,
                        force=False,
-                       student=[],
+                       student=None,
                       ):
         """Apply late penalties and post grades with comments to Canvas.
 
@@ -365,6 +365,10 @@ class gradescope_grade:
             raise ValueError("Gradescope CSV has not been loaded. Please set it via process_grade.load_gradescope_csv")
         if self.assignment is None:
             raise ValueError("Assignment has not been link. Please link the assignment.")
+        if components is None:
+            components = []
+        if student is None:
+            student = []
         credit_balance = self.calculate_credit_balance(passed_assignments, total_credit=total_credit)
         late_hours = self.calculate_late_hour(target_assignment)
         if len(components) > 1:
