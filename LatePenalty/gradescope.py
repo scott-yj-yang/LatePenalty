@@ -24,15 +24,30 @@ class bcolors:
 
 
 class gradescope_grade:
+    """Process Gradescope CSV grades and post to Canvas with late penalty.
+
+    Handles loading Gradescope-exported CSVs, computing late hours and slip
+    credit balances, applying late penalties, and posting final grades with
+    comments to Canvas LMS.
+
+    Args:
+        credentials_fp: Path to credentials JSON file containing
+            'Canvas Token' and 'GitHub Token' keys.
+        API_URL: Canvas instance base URL.
+        course_id: Canvas course ID, found in the course URL.
+        assignment_id: Canvas assignment ID, found in the assignment URL.
+        gradescope_fp: Path to the Gradescope-exported CSV file.
+        verbosity: Output verbosity level (0 = silent, 1 = print all messages).
+    """
+
     def __init__(self,
-                 credentials_fp = "", # credential file path. [Template of the credentials.json](https://github.com/FleischerResearchLab/CanvasGroupy/blob/main/nbs/credentials.json)
-                 API_URL="https://canvas.ucsd.edu", # the domain name of canvas
-                 course_id="", # Course ID can be found in the course url
-                 assignment_id=-1, # assignment id, can be found in the canvas assignment url
-                 gradescope_fp="", # gradescope csv file path 
-                 verbosity=1 # Controls the verbosity: 0 = Silent, 1 = print all messages
+                 credentials_fp = "",
+                 API_URL="https://canvas.ucsd.edu",
+                 course_id="",
+                 assignment_id=-1,
+                 gradescope_fp="",
+                 verbosity=1
                 ):
-        "Initialize Canvas Group within a Group Set and its appropriate memberships"
         self.API_URL = API_URL
         self.canvas = None
         self.course = None
@@ -58,9 +73,21 @@ class gradescope_grade:
             self.load_gradescope_csv(gradescope_fp)
 
     def auth_canvas(self,
-                    credentials_fp: str # the Authenticator key generated from canvas
+                    credentials_fp: str
                    ):
-        "Authorize the canvas module with API_KEY"
+        """Authorize the Canvas API connection.
+
+        Reads the credentials JSON file and initializes the Canvas API client.
+        Tests the connection by fetching the activity stream summary.
+
+        Args:
+            credentials_fp: Path to JSON file containing 'Canvas Token' and
+                'GitHub Token' keys.
+
+        Raises:
+            FileNotFoundError: If the credentials file does not exist.
+            KeyError: If required token keys are missing from the JSON.
+        """
         with open(credentials_fp, "r") as f:
             credentials = json.load(f)
         self.API_KEY = credentials["Canvas Token"]
@@ -71,10 +98,18 @@ class gradescope_grade:
         if self.verbosity != 0:
             print(f"{bcolors.OKGREEN}Authorization Successful!{bcolors.ENDC}")
 
-    def set_course(self, 
-                   course_id: int # the course id of the target course
+    def set_course(self,
+                   course_id: int
                   ):
-        "Set the target course by the course ID"
+        """Set the target course and load student and staff rosters.
+
+        Fetches all students and course staff (teachers, TAs, designers),
+        then builds email-to-Canvas-ID and Canvas-ID-to-email lookup
+        dictionaries for grade posting.
+
+        Args:
+            course_id: The Canvas course ID, found in the course URL.
+        """
         self.course = self.canvas.get_course(course_id)
         if self.verbosity != 0:
             print(f"Course Set: {bcolors.OKGREEN} {self.course.name} {bcolors.ENDC}")
@@ -101,9 +136,19 @@ class gradescope_grade:
                           f" for {bcolors.UNDERLINE}{u.short_name}{bcolors.ENDC}{bcolors.ENDC}")
 
     def link_assignment(self,
-                        assignment_id: int # assignment id, found at the url of assignment tab
-                       ) -> canvasapi.assignment.Assignment: # target assignment
-        "Link the target assignment on canvas"
+                        assignment_id: int
+                       ) -> canvasapi.assignment.Assignment:
+        """Link a Canvas assignment for grade posting.
+
+        Fetches the assignment object from Canvas and stores it for
+        subsequent grade submissions.
+
+        Args:
+            assignment_id: Canvas assignment ID, found in the assignment URL.
+
+        Returns:
+            The linked Canvas Assignment object.
+        """
         assignment = self.course.get_assignment(assignment_id)
         if self.verbosity != 0:
             print(f"Assignment {bcolors.OKGREEN+assignment.name+bcolors.ENDC} Link!")
@@ -111,18 +156,37 @@ class gradescope_grade:
         return assignment
 
     def load_gradescope_csv(self,
-                            csv_pf:str # csv file path 
+                            csv_pf:str
                            ):
-        "Load gradescope exported csv file"
+        """Load a Gradescope-exported CSV file and index by student email.
+
+        Reads the CSV, strips the domain from email addresses to use the
+        local part as the index, and fills missing values with zero.
+
+        Args:
+            csv_pf: Path to the Gradescope-exported CSV file.
+        """
         self.gradescope = pd.read_csv(csv_pf)
         self.gradescope['Email'] = self.gradescope["Email"].str.split("@").str[0]
         self.gradescope = self.gradescope.set_index("Email")
         self.gradescope = self.gradescope.fillna(0)
 
     def calculate_late_hour(self,
-                            target_assignment:str, # target assignment name. Must in the column of gradescope csv 
-                           ) -> pd.Series: # late hours of the target assignment
-        "Calculate the late hours of each submission of the target assignment"
+                            target_assignment:str
+                           ) -> pd.Series:
+        """Parse the H:M:S lateness column and convert to late hours.
+
+        Reads the ``<assignment> - Lateness (H:M:S)`` column from the
+        loaded Gradescope CSV and converts it to total late hours,
+        rounding minutes up to the next full hour.
+
+        Args:
+            target_assignment: Assignment name that appears as a column
+                prefix in the Gradescope CSV.
+
+        Returns:
+            A Series indexed by student email with late hours as values.
+        """
         late_col_name = f"{target_assignment} - Lateness (H:M:S)"
         late_col = self.gradescope[late_col_name]
         # calculate how many slip days (hours) used for this assignment.
@@ -133,10 +197,25 @@ class gradescope_grade:
         return late_hours
 
     def calculate_credit_balance(self,
-                                 passed_assignments:List[str], # list of passed assignment. Must in the column of gradescope csv
-                                 total_credit = 120 # total number of allowed late hours
-                                ) -> dict: # {email: credit balance} late credit balance of each student
-        "Calculate the balance of late hours from the gradescope file"
+                                 passed_assignments:List[str],
+                                 total_credit = 120
+                                ) -> dict:
+        """Calculate remaining slip-hour credit for each student.
+
+        Iterates over previously graded assignments and deducts late hours
+        from each student's total credit balance. Hours are only deducted
+        when the student still has sufficient credit (i.e., no penalty was
+        applied for that assignment).
+
+        Args:
+            passed_assignments: List of assignment names (column prefixes
+                in the Gradescope CSV) that have already been graded.
+            total_credit: Total number of allowed late hours per student.
+
+        Returns:
+            A Series indexed by student email with remaining slip-hour
+            credit as values.
+        """
         self.gradescope["late balance"] = total_credit
         for passed_assignment in passed_assignments:
             late_hours = self.calculate_late_hour(passed_assignment)
@@ -148,9 +227,27 @@ class gradescope_grade:
         return self.gradescope["late balance"]
 
     def calculate_late_reports(self,
-                               passed_assignments: List[str], # list of passed assignment. Must in the column of gradescope csv
-                               total_credit = 120 # total number of allowed late hours
-                            ) -> List[dict]: # {email: (str: late_assignments, int: late_hours, bool: penalty_applied )}, {email: int total_late_hours}
+                               passed_assignments: List[str],
+                               total_credit = 120
+                            ) -> List[dict]:
+        """Generate per-student late submission reports across assignments.
+
+        For each past assignment, tracks which students were late, how many
+        hours late, and whether the late penalty was applied (i.e., credit
+        was exhausted).
+
+        Args:
+            passed_assignments: List of assignment names (column prefixes
+                in the Gradescope CSV) that have already been graded.
+            total_credit: Total number of allowed late hours per student.
+
+        Returns:
+            A tuple of two dicts:
+                - ``late_assignments``: Maps email to a list of tuples
+                  ``(assignment_name, late_hours, penalty_applied)``.
+                - ``total_late_hours``: Maps email to total late hours
+                  across all assignments.
+        """
         late_assignments = defaultdict(list)
         total_late_hours = defaultdict(int)
         self.gradescope["_late_balance"] = total_credit
@@ -170,21 +267,45 @@ class gradescope_grade:
         return late_assignments, total_late_hours
 
     def calculate_total_score(self,
-                              components:List[str], # components of a single assignment. Must in the column of gradescope csv
+                              components:List[str]
                              ) -> pd.Series:
-        "Calculate the total score of an assignment"
+        """Sum individual component scores into a total assignment score.
+
+        Args:
+            components: List of column names in the Gradescope CSV
+                representing individual score components of the assignment.
+
+        Returns:
+            A Series indexed by student email with the summed total score.
+        """
         self.gradescope["target_total"] = 0
         for component in components:
             self.gradescope["target_total"] += self.gradescope[component]
         return self.gradescope["target_total"]
 
     def _post_grade(self,
-                    student_id: int, # canvas student id of a student. found in self.email_to_canvas_id
-                    grade: float, # grade of that assignment
-                    text_comment="", # Text comment of the submission. Can feed
-                    force=False, # Whether force to post grade for all students. If False (default), it will skip post for the same score.
-                  ) -> canvasapi.submission.Submission: # created submission
-        "Post grade and comment to canvas to the target assignment"
+                    student_id: int,
+                    grade: float,
+                    text_comment="",
+                    force=False,
+                  ) -> canvasapi.submission.Submission:
+        """Post a grade and comment to Canvas for a single student submission.
+
+        Fetches the existing submission and, unless ``force`` is True,
+        skips posting when the score has not changed.
+
+        Args:
+            student_id: Canvas user ID of the student, found in
+                ``self.email_to_canvas_id``.
+            grade: Numeric grade to post for the assignment.
+            text_comment: Text comment attached to the submission that the
+                student will see as grade feedback.
+            force: If False (default), skip posting when the existing
+                score matches ``grade``. If True, always post.
+
+        Returns:
+            The edited Canvas Submission object, or None if skipped.
+        """
         submission = self.assignment.get_submission(student_id)
         if not force and submission.score == grade:
             if self.verbosity != 0:
@@ -204,15 +325,42 @@ class gradescope_grade:
         return edited
 
     def post_to_canvas(self,
-                       target_assignment:str, # target assignment name to grab the late time. Must in the column of gradescope csv 
-                       passed_assignments:List[str], # list of passed assignment. Must in the column of gradescope csv
-                       components=[], # components of a single assignment. Must in the column of gradescope csv
-                       total_credit=120, # total number of allowed late hours
-                       post=False, # For testing purposes. Can halt the post-operation
-                       force=False, # whether force to post grade for all students. If False (default), it will skip post for the same score.
-                       student=[], # list of student email to post grade. If empty, it will post all students
+                       target_assignment:str,
+                       passed_assignments:List[str],
+                       components=[],
+                       total_credit=120,
+                       post=False,
+                       force=False,
+                       student=[],
                       ):
-        "Post grade to canvas with late penalty."
+        """Apply late penalties and post grades with comments to Canvas.
+
+        Main grading workflow: calculates slip-credit balances, determines
+        late hours for the target assignment, computes total scores from
+        components, applies a 25 percent penalty when slip credit is
+        exhausted, and posts grades with detailed feedback comments to
+        Canvas.
+
+        Args:
+            target_assignment: Assignment name whose lateness column will
+                be read from the Gradescope CSV.
+            passed_assignments: List of previously graded assignment names
+                used to compute remaining slip credit.
+            components: List of Gradescope CSV column names that are summed
+                to produce the total score. If fewer than two components,
+                the target assignment column is used directly.
+            total_credit: Total number of allowed late hours per student.
+            post: If True, actually post grades to Canvas. If False
+                (default), only print what would be posted (dry run).
+            force: If True, post grades even when the score has not
+                changed. Defaults to False.
+            student: List of student emails to post. If empty, grades are
+                posted for all students.
+
+        Raises:
+            ValueError: If the Gradescope CSV has not been loaded.
+            ValueError: If no assignment has been linked.
+        """
         if self.gradescope is None:
             raise ValueError("Gradescope CSV has not been loaded. Please set it via process_grade.load_gradescope_csv")
         if self.assignment is None:
