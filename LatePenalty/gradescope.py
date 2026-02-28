@@ -12,15 +12,15 @@ from collections import defaultdict
 
 
 class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
+    HEADER = "\033[95m"
+    OKBLUE = "\033[94m"
+    OKCYAN = "\033[96m"
+    OKGREEN = "\033[92m"
+    WARNING = "\033[93m"
+    FAIL = "\033[91m"
+    ENDC = "\033[0m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
 
 
 class gradescope_grade:
@@ -40,14 +40,15 @@ class gradescope_grade:
         verbosity: Output verbosity level (0 = silent, 1 = print all messages).
     """
 
-    def __init__(self,
-                 credentials_fp = "",
-                 API_URL="https://canvas.ucsd.edu",
-                 course_id="",
-                 assignment_id=-1,
-                 gradescope_fp="",
-                 verbosity=1
-                ):
+    def __init__(
+        self,
+        credentials_fp="",
+        API_URL="https://canvas.ucsd.edu",
+        course_id="",
+        assignment_id=-1,
+        gradescope_fp="",
+        verbosity=1,
+    ):
         self.API_URL = API_URL
         self.canvas = None
         self.course = None
@@ -72,9 +73,7 @@ class gradescope_grade:
         if gradescope_fp != "":
             self.load_gradescope_csv(gradescope_fp)
 
-    def auth_canvas(self,
-                    credentials_fp: str
-                   ):
+    def auth_canvas(self, credentials_fp: str):
         """Authorize the Canvas API connection.
 
         Reads the credentials JSON file and initializes the Canvas API client.
@@ -98,9 +97,7 @@ class gradescope_grade:
         if self.verbosity != 0:
             print(f"{bcolors.OKGREEN}Authorization Successful!{bcolors.ENDC}")
 
-    def set_course(self,
-                   course_id: int
-                  ):
+    def set_course(self, course_id: int):
         """Set the target course and load student and staff rosters.
 
         Fetches all students and course staff (teachers, TAs, designers),
@@ -114,13 +111,15 @@ class gradescope_grade:
         if self.verbosity != 0:
             print(f"Course Set: {bcolors.OKGREEN} {self.course.name} {bcolors.ENDC}")
             print(f"Getting List of Users... This might take a while...")
-        type_list = ['teacher', 'ta', 'designer']
+        type_list = ["teacher", "ta", "designer"]
         self.course_staffs = list(self.course.get_users(enrollment_type=type_list))
-        self.users = list(self.course.get_users(enrollment_type=['student']))
+        self.users = list(self.course.get_users(enrollment_type=["student"]))
         if self.verbosity != 0:
-            print(f"Users Fetch Complete!\n"
-                  f"The course has {bcolors.OKBLUE}{len(self.users)}{bcolors.ENDC} users.\n"
-                  f"The course has {bcolors.OKBLUE}{len(self.course_staffs)}{bcolors.ENDC} course staffs")
+            print(
+                f"Users Fetch Complete!\n"
+                f"The course has {bcolors.OKBLUE}{len(self.users)}{bcolors.ENDC} users.\n"
+                f"The course has {bcolors.OKBLUE}{len(self.course_staffs)}{bcolors.ENDC} course staffs"
+            )
         self.email_to_canvas_id = {}
         self.canvas_id_to_email = {}
         self.email_to_name = {}
@@ -132,12 +131,12 @@ class gradescope_grade:
                 self.email_to_name[u.email.split("@")[0]] = u.short_name
             except Exception:
                 if self.verbosity != 0:
-                    print(f"{bcolors.WARNING}Failed to Parse email and id"
-                          f" for {bcolors.UNDERLINE}{u.short_name}{bcolors.ENDC}{bcolors.ENDC}")
+                    print(
+                        f"{bcolors.WARNING}Failed to Parse email and id"
+                        f" for {bcolors.UNDERLINE}{u.short_name}{bcolors.ENDC}{bcolors.ENDC}"
+                    )
 
-    def link_assignment(self,
-                        assignment_id: int
-                       ) -> canvasapi.assignment.Assignment:
+    def link_assignment(self, assignment_id: int) -> canvasapi.assignment.Assignment:
         """Link a Canvas assignment for grade posting.
 
         Fetches the assignment object from Canvas and stores it for
@@ -155,9 +154,7 @@ class gradescope_grade:
         self.assignment = assignment
         return assignment
 
-    def load_gradescope_csv(self,
-                            csv_pf:str
-                           ):
+    def load_gradescope_csv(self, csv_pf: str):
         """Load a Gradescope-exported CSV file and index by student email.
 
         Reads the CSV, strips the domain from email addresses to use the
@@ -167,13 +164,11 @@ class gradescope_grade:
             csv_pf: Path to the Gradescope-exported CSV file.
         """
         self.gradescope = pd.read_csv(csv_pf)
-        self.gradescope['Email'] = self.gradescope["Email"].str.split("@").str[0]
+        self.gradescope["Email"] = self.gradescope["Email"].str.split("@").str[0]
         self.gradescope = self.gradescope.set_index("Email")
         self.gradescope = self.gradescope.fillna(0)
 
-    def calculate_late_hour(self,
-                            target_assignment:str
-                           ) -> pd.Series:
+    def calculate_late_hour(self, target_assignment: str) -> pd.Series:
         """Parse the H:M:S lateness column and convert to late hours.
 
         Reads the ``<assignment> - Lateness (H:M:S)`` column from the
@@ -190,16 +185,14 @@ class gradescope_grade:
         late_col_name = f"{target_assignment} - Lateness (H:M:S)"
         late_col = self.gradescope[late_col_name]
         # calculate how many slip days (hours) used for this assignment.
-        late_hours = (
-            late_col.str.split(":").str[0].astype(int) + 
-            np.ceil(late_col.str.split(":").str[1].astype(int)/60)
+        late_hours = late_col.str.split(":").str[0].astype(int) + np.ceil(
+            late_col.str.split(":").str[1].astype(int) / 60
         )
         return late_hours
 
-    def calculate_credit_balance(self,
-                                 passed_assignments:List[str],
-                                 total_credit = 120
-                                ) -> dict:
+    def calculate_credit_balance(
+        self, passed_assignments: List[str], total_credit=120
+    ) -> dict:
         """Calculate remaining slip-hour credit for each student.
 
         Iterates over previously graded assignments and deducts late hours
@@ -226,10 +219,9 @@ class gradescope_grade:
             self.gradescope.loc[valid_balance_mask, "late balance"] = late_balance
         return self.gradescope["late balance"]
 
-    def calculate_late_reports(self,
-                               passed_assignments: List[str],
-                               total_credit = 120
-                            ) -> List[dict]:
+    def calculate_late_reports(
+        self, passed_assignments: List[str], total_credit=120
+    ) -> List[dict]:
         """Generate per-student late submission reports across assignments.
 
         For each past assignment, tracks which students were late, how many
@@ -259,16 +251,14 @@ class gradescope_grade:
             valid_balance_mask = late_balance >= 0
             self.gradescope.loc[valid_balance_mask, "_late_balance"] = late_balance
             penalty_applied = self.gradescope.index[~valid_balance_mask]
-            for email, late_hour in late_hours.items(): 
+            for email, late_hour in late_hours.items():
                 late_assignments[email].append(
                     (passed_assignment, late_hour, email in penalty_applied)
                 )
                 total_late_hours[email] += late_hour
         return late_assignments, total_late_hours
 
-    def calculate_total_score(self,
-                              components:List[str]
-                             ) -> pd.Series:
+    def calculate_total_score(self, components: List[str]) -> pd.Series:
         """Sum individual component scores into a total assignment score.
 
         Args:
@@ -283,12 +273,13 @@ class gradescope_grade:
             self.gradescope["target_total"] += self.gradescope[component]
         return self.gradescope["target_total"]
 
-    def _post_grade(self,
-                    student_id: int,
-                    grade: float,
-                    text_comment="",
-                    force=False,
-                  ) -> canvasapi.submission.Submission:
+    def _post_grade(
+        self,
+        student_id: int,
+        grade: float,
+        text_comment="",
+        force=False,
+    ) -> canvasapi.submission.Submission:
         """Post a grade and comment to Canvas for a single student submission.
 
         Fetches the existing submission and, unless ``force`` is True,
@@ -309,30 +300,30 @@ class gradescope_grade:
         submission = self.assignment.get_submission(student_id)
         if not force and submission.score == grade:
             if self.verbosity != 0:
-                print(f"Grade for {bcolors.OKGREEN+self.canvas_id_to_email[student_id]+bcolors.ENDC} did not change.\n"
-                      f"{bcolors.OKCYAN}Skipped{bcolors.ENDC}.\n"
-                     )
+                print(
+                    f"Grade for {bcolors.OKGREEN+self.canvas_id_to_email[student_id]+bcolors.ENDC} did not change.\n"
+                    f"{bcolors.OKCYAN}Skipped{bcolors.ENDC}.\n"
+                )
             return
         edited = submission.edit(
-            submission={
-                'posted_grade': grade
-            }, comment={
-                'text_comment': text_comment
-            }
+            submission={"posted_grade": grade}, comment={"text_comment": text_comment}
         )
         if self.verbosity != 0:
-            print(f"Grade for {bcolors.OKGREEN+self.canvas_id_to_email[student_id]+bcolors.ENDC} Posted! \n Grade: {bcolors.OKGREEN+str(grade)+bcolors.ENDC} \n Comment: {bcolors.OKGREEN+text_comment+bcolors.ENDC} \n")
+            print(
+                f"Grade for {bcolors.OKGREEN+self.canvas_id_to_email[student_id]+bcolors.ENDC} Posted! \n Grade: {bcolors.OKGREEN+str(grade)+bcolors.ENDC} \n Comment: {bcolors.OKGREEN+text_comment+bcolors.ENDC} \n"
+            )
         return edited
 
-    def post_to_canvas(self,
-                       target_assignment:str,
-                       passed_assignments:List[str],
-                       components=None,
-                       total_credit=120,
-                       post=False,
-                       force=False,
-                       student=None,
-                      ):
+    def post_to_canvas(
+        self,
+        target_assignment: str,
+        passed_assignments: List[str],
+        components=None,
+        total_credit=120,
+        post=False,
+        force=False,
+        student=None,
+    ):
         """Apply late penalties and post grades with comments to Canvas.
 
         Main grading workflow: calculates slip-credit balances, determines
@@ -362,14 +353,20 @@ class gradescope_grade:
             ValueError: If no assignment has been linked.
         """
         if self.gradescope is None:
-            raise ValueError("Gradescope CSV has not been loaded. Please set it via process_grade.load_gradescope_csv")
+            raise ValueError(
+                "Gradescope CSV has not been loaded. Please set it via process_grade.load_gradescope_csv"
+            )
         if self.assignment is None:
-            raise ValueError("Assignment has not been link. Please link the assignment.")
+            raise ValueError(
+                "Assignment has not been link. Please link the assignment."
+            )
         if components is None:
             components = []
         if student is None:
             student = []
-        credit_balance = self.calculate_credit_balance(passed_assignments, total_credit=total_credit)
+        credit_balance = self.calculate_credit_balance(
+            passed_assignments, total_credit=total_credit
+        )
         late_hours = self.calculate_late_hour(target_assignment)
         if len(components) > 1:
             total_score = self.calculate_total_score(components)
@@ -377,7 +374,9 @@ class gradescope_grade:
             total_score = self.gradescope[target_assignment]
         # Post Grade
         if not force and self.verbosity != 0:
-            print("Force Posting Disabled. If you need to completely overwrite student scores, please set force=True")
+            print(
+                "Force Posting Disabled. If you need to completely overwrite student scores, please set force=True"
+            )
         for email, _ in self.gradescope.iterrows():
             if email in self.course_staffs_emails:
                 # the course staffs did not have a canvas profile and thus don't need to post grade
@@ -406,14 +405,17 @@ class gradescope_grade:
             if post:
                 try:
                     student_id = self.email_to_canvas_id[email.split("@")[0]]
-                    self._post_grade(grade=score,
-                                     student_id=student_id,
-                                     text_comment=message,
-                                     force=force
-                                    )
+                    self._post_grade(
+                        grade=score,
+                        student_id=student_id,
+                        text_comment=message,
+                        force=force,
+                    )
                 except Exception as e:
-                    print(f"Student: {bcolors.WARNING+email+bcolors.ENDC} Not found on canvas.\n"
-                          f"Maybe Testing Account or Dropped Student\n")
+                    print(
+                        f"Student: {bcolors.WARNING+email+bcolors.ENDC} Not found on canvas.\n"
+                        f"Maybe Testing Account or Dropped Student\n"
+                    )
                     print(e)
             else:
                 print(

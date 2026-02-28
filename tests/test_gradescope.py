@@ -6,7 +6,6 @@ import pandas as pd
 from unittest.mock import MagicMock, patch
 from LatePenalty.gradescope import gradescope_grade
 
-
 # ===================================================================
 # Auth and Setup Tests
 # ===================================================================
@@ -19,7 +18,9 @@ class TestAuthCanvas:
         MockCanvas, canvas_instance, _, _ = mock_canvas_api
         gg = gradescope_grade(verbosity=0)
         gg.auth_canvas(credentials)
-        MockCanvas.assert_called_once_with("https://canvas.ucsd.edu", "fake-canvas-token")
+        MockCanvas.assert_called_once_with(
+            "https://canvas.ucsd.edu", "fake-canvas-token"
+        )
         canvas_instance.get_activity_stream_summary.assert_called_once()
         assert gg.API_KEY == "fake-canvas-token"
 
@@ -45,13 +46,17 @@ class TestAuthCanvas:
         MockCanvas, _, _, _ = mock_canvas_api
         gg = gradescope_grade(API_URL="https://custom.canvas.edu", verbosity=0)
         gg.auth_canvas(credentials)
-        MockCanvas.assert_called_once_with("https://custom.canvas.edu", "fake-canvas-token")
+        MockCanvas.assert_called_once_with(
+            "https://custom.canvas.edu", "fake-canvas-token"
+        )
 
 
 class TestSetCourse:
     """Tests for set_course method."""
 
-    def test_set_course_fetches_students_and_staff(self, credentials, mock_canvas_api, mock_students, mock_staff):
+    def test_set_course_fetches_students_and_staff(
+        self, credentials, mock_canvas_api, mock_students, mock_staff
+    ):
         _, canvas_instance, mock_course, _ = mock_canvas_api
         gg = gradescope_grade(verbosity=0)
         gg.auth_canvas(credentials)
@@ -255,8 +260,7 @@ class TestPostGrade:
         gg_ready._post_grade(student_id=101, grade=85.0, text_comment="Good job")
         mock_assignment.get_submission.assert_called_once_with(101)
         mock_submission.edit.assert_called_once_with(
-            submission={'posted_grade': 85.0},
-            comment={'text_comment': "Good job"}
+            submission={"posted_grade": 85.0}, comment={"text_comment": "Good job"}
         )
 
     def test_post_grade_skips_same_score(self, gg_ready, mock_canvas_api):
@@ -303,7 +307,9 @@ class TestPostToCanvas:
         with pytest.raises(ValueError, match="Gradescope CSV has not been loaded"):
             gg.post_to_canvas("HW1", [])
 
-    def test_raises_without_assignment_linked(self, credentials, mock_canvas_api, gradescope_csv):
+    def test_raises_without_assignment_linked(
+        self, credentials, mock_canvas_api, gradescope_csv
+    ):
         _, _, _, _ = mock_canvas_api
         gg = gradescope_grade(verbosity=0)
         gg.auth_canvas(credentials)
@@ -327,9 +333,7 @@ class TestPostToCanvas:
         mock_assignment.get_submission.return_value = mock_submission
 
         # bob is 26 hours late on HW1; with only 20 credit, penalty applies
-        gg_full.post_to_canvas(
-            "HW1", [], total_credit=20, post=True, force=True
-        )
+        gg_full.post_to_canvas("HW1", [], total_credit=20, post=True, force=True)
 
         # Find the call for bob (student_id=102)
         # _post_grade is called via self, so we check mock_assignment.get_submission calls
@@ -345,12 +349,18 @@ class TestPostToCanvas:
         # bob's score is 85.0 * 0.75 = 63.75
         bob_grade_found = False
         for call in edit_calls:
-            grade = call[1].get('submission', call[0][0] if call[0] else {}).get('posted_grade', None)
+            grade = (
+                call[1]
+                .get("submission", call[0][0] if call[0] else {})
+                .get("posted_grade", None)
+            )
             if grade is None and len(call[0]) == 0:
-                grade = call[1].get('submission', {}).get('posted_grade')
+                grade = call[1].get("submission", {}).get("posted_grade")
             if grade == 63.75:
                 bob_grade_found = True
-        assert bob_grade_found, "Bob's grade should be 85.0 * 0.75 = 63.75 after late penalty"
+        assert (
+            bob_grade_found
+        ), "Bob's grade should be 85.0 * 0.75 = 63.75 after late penalty"
 
     def test_skips_staff_members(self, gg_full, mock_canvas_api, tmp_path):
         """Staff members listed in course_staffs_emails should be skipped."""

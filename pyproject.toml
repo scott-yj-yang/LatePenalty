@@ -44,3 +44,8 @@ docs = [
 Homepage = "https://github.com/scott-yj-yang/LatePenalty"
 Documentation = "https://scott-yj-yang.github.io/LatePenalty"
 Repository = "https://github.com/scott-yj-yang/LatePenalty"
+
+[dependency-groups]
+dev = [
+    "black>=26.1.0",
+]

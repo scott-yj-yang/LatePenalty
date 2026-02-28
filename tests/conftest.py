@@ -7,10 +7,10 @@ import numpy as np
 from unittest.mock import MagicMock, patch
 from datetime import datetime
 
-
 # ---------------------------------------------------------------------------
 # Credential fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def credentials(tmp_path):
@@ -32,6 +32,7 @@ def bad_credentials(tmp_path):
 # ---------------------------------------------------------------------------
 # Canvas mock fixtures
 # ---------------------------------------------------------------------------
+
 
 def _make_mock_user(email_prefix, canvas_id, short_name=None):
     """Helper to create a mock Canvas user object."""
@@ -69,9 +70,9 @@ def mock_course(mock_students, mock_staff):
     course.id = 99999
 
     def get_users_side_effect(enrollment_type=None):
-        if enrollment_type == ['student']:
+        if enrollment_type == ["student"]:
             return mock_students
-        elif enrollment_type == ['teacher', 'ta', 'designer']:
+        elif enrollment_type == ["teacher", "ta", "designer"]:
             return mock_staff
         return mock_students + mock_staff
 
@@ -116,6 +117,7 @@ def mock_canvas_api_nbgrader(mock_course, mock_assignment):
 # Gradescope data fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def gradescope_csv(tmp_path):
     """Create a minimal Gradescope CSV and return its path."""
@@ -138,6 +140,7 @@ def gradescope_csv(tmp_path):
 # nbgrader data fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def nbgrader_csv(tmp_path):
     """Create a minimal nbgrader CSV and return its path."""
@@ -145,8 +148,12 @@ def nbgrader_csv(tmp_path):
         "student_id": ["alice", "bob", "carol", "alice", "bob", "carol"],
         "assignment": ["A1", "A1", "A1", "A2", "A2", "A2"],
         "duedate": [
-            "2024-01-15 23:59:59", "2024-01-15 23:59:59", "2024-01-15 23:59:59",
-            "2024-01-22 23:59:59", "2024-01-22 23:59:59", "2024-01-22 23:59:59",
+            "2024-01-15 23:59:59",
+            "2024-01-15 23:59:59",
+            "2024-01-15 23:59:59",
+            "2024-01-22 23:59:59",
+            "2024-01-22 23:59:59",
+            "2024-01-22 23:59:59",
         ],
         "timestamp": [
             "2024-01-15 20:00:00.000000",  # on-time
@@ -169,6 +176,7 @@ def nbgrader_csv(tmp_path):
 def late_exception_yaml(tmp_path):
     """Create a late exception YAML file and return its path."""
     import yaml
+
     exceptions = {
         "bob": {"allowed_late_days": 10, "reasons": "accommodation"},
         "carol": {"allowed_late_days": 3, "reasons": "sickness"},

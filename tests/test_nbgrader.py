@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch, call
 from datetime import datetime
 from LatePenalty.nbgrader import nbgrader_grade
 
-
 # ===========================================================================
 # Auth and Setup Tests
 # ===========================================================================
@@ -22,7 +21,9 @@ class TestAuthCanvas:
         MockCanvas, canvas_instance, _, _ = mock_canvas_api_nbgrader
         ng = nbgrader_grade(verbosity=0)
         ng.auth_canvas(credentials)
-        MockCanvas.assert_called_once_with("https://canvas.ucsd.edu", "fake-canvas-token")
+        MockCanvas.assert_called_once_with(
+            "https://canvas.ucsd.edu", "fake-canvas-token"
+        )
         assert ng.API_KEY == "fake-canvas-token"
         assert ng.GITHUB_TOKEN == "fake-github-token"
 
@@ -106,9 +107,16 @@ class TestLoadGradesCsv:
         """_parse_assignments raises ValueError when the DataFrame is empty."""
         # Create an empty CSV with only headers
         fp = tmp_path / "empty.csv"
-        pd.DataFrame(columns=["student_id", "assignment", "duedate", "timestamp", "raw_score", "max_score"]).to_csv(
-            fp, index=False
-        )
+        pd.DataFrame(
+            columns=[
+                "student_id",
+                "assignment",
+                "duedate",
+                "timestamp",
+                "raw_score",
+                "max_score",
+            ]
+        ).to_csv(fp, index=False)
         ng = nbgrader_grade(verbosity=0)
         with pytest.raises(ValueError, match="grades has not been loaded"):
             ng.load_grades_csv(str(fp))
@@ -234,7 +242,9 @@ class TestCalculateCreditBalance:
 class TestPostGrade:
     """Tests for _post_grade."""
 
-    def test_edits_submission(self, credentials, mock_canvas_api_nbgrader, mock_assignment):
+    def test_edits_submission(
+        self, credentials, mock_canvas_api_nbgrader, mock_assignment
+    ):
         """_post_grade calls submission.edit with grade and comment."""
         _, _, mock_course, _ = mock_canvas_api_nbgrader
         ng = nbgrader_grade(verbosity=0)
@@ -252,7 +262,9 @@ class TestPostGrade:
             comment={"text_comment": "Great job!"},
         )
 
-    def test_skips_same_score(self, credentials, mock_canvas_api_nbgrader, mock_assignment):
+    def test_skips_same_score(
+        self, credentials, mock_canvas_api_nbgrader, mock_assignment
+    ):
         """_post_grade skips posting when existing score matches and force=False."""
         ng = nbgrader_grade(verbosity=0)
         ng.auth_canvas(credentials)
@@ -267,7 +279,9 @@ class TestPostGrade:
         assert result is None
         mock_submission.edit.assert_not_called()
 
-    def test_force_overrides_same_score(self, credentials, mock_canvas_api_nbgrader, mock_assignment):
+    def test_force_overrides_same_score(
+        self, credentials, mock_canvas_api_nbgrader, mock_assignment
+    ):
         """_post_grade posts even when score matches when force=True."""
         ng = nbgrader_grade(verbosity=0)
         ng.auth_canvas(credentials)
@@ -281,7 +295,9 @@ class TestPostGrade:
         ng._post_grade(student_id=101, grade=90.0, text_comment="forced", force=True)
         mock_submission.edit.assert_called_once()
 
-    def test_none_grade_posts_comment_only(self, credentials, mock_canvas_api_nbgrader, mock_assignment):
+    def test_none_grade_posts_comment_only(
+        self, credentials, mock_canvas_api_nbgrader, mock_assignment
+    ):
         """_post_grade with grade=None posts only a comment, no posted_grade."""
         ng = nbgrader_grade(verbosity=0)
         ng.auth_canvas(credentials)

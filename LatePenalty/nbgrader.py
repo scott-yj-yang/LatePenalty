@@ -121,7 +121,9 @@ class nbgrader_grade:
             print(f"Getting List of Users... This might take a while...")
         self.users = list(self.course.get_users(enrollment_type=["student"]))
         if self.verbosity != 0:
-            print(f"Users Fetch Complete! The course has {bcolors.OKBLUE}{len(self.users)}{bcolors.ENDC} users.")
+            print(
+                f"Users Fetch Complete! The course has {bcolors.OKBLUE}{len(self.users)}{bcolors.ENDC} users."
+            )
         self.email_to_canvas_id = {}
         self.canvas_id_to_email = {}
         for u in self.users:
@@ -135,9 +137,7 @@ class nbgrader_grade:
                         f" for {bcolors.UNDERLINE}{u.short_name}{bcolors.ENDC}{bcolors.ENDC}"
                     )
 
-    def link_assignment(
-        self, assignment_id: int
-    ) -> canvasapi.assignment.Assignment:
+    def link_assignment(self, assignment_id: int) -> canvasapi.assignment.Assignment:
         """Link a Canvas assignment for grade posting.
 
         Fetches the assignment object from Canvas and stores it for
@@ -183,7 +183,9 @@ class nbgrader_grade:
     def _parse_assignments(self):
         "Parse all assignments by assignment name. And calculate late days used."
         if len(self.grades) == 0:
-            raise ValueError("grades has not been loaded. Please loaded via self.load_grades_csv")
+            raise ValueError(
+                "grades has not been loaded. Please loaded via self.load_grades_csv"
+            )
         assignments = self.grades["assignment"].unique()
         # I am just lazy :-)
         df = self.grades
@@ -229,7 +231,9 @@ class nbgrader_grade:
             False otherwise.
         """
 
-        page = requests.get("https://github.com/" + user_name + "/" + repo_name, timeout=5)
+        page = requests.get(
+            "https://github.com/" + user_name + "/" + repo_name, timeout=5
+        )
         return nbgrader_grade._check_page(page)
 
     def check_git_file(
@@ -251,7 +255,15 @@ class nbgrader_grade:
             False otherwise.
         """
 
-        page = requests.get("https://github.com/" + user_name + "/" + repo_name + "/blob/master/" + f_name, timeout=5)
+        page = requests.get(
+            "https://github.com/"
+            + user_name
+            + "/"
+            + repo_name
+            + "/blob/master/"
+            + f_name,
+            timeout=5,
+        )
         return nbgrader_grade._check_page(page)
 
     def _check_page(page):
@@ -321,12 +333,18 @@ class nbgrader_grade:
                 return 0
         raise ValueError("Issue with this students")
 
-    def _calculate_late_days(self, df: pd.DataFrame) -> pd.Series:  # dataframe of a specific assignment  # late days
+    def _calculate_late_days(
+        self, df: pd.DataFrame
+    ) -> pd.Series:  # dataframe of a specific assignment  # late days
         # parse the timestamp
         duedate_format = "%Y-%m-%d %H:%M:%S"
         timestamp_format = "%Y-%m-%d %H:%M:%S.%f"
-        df["duedate"] = df["duedate"].apply(lambda x: datetime.strptime(x, duedate_format))
-        df["timestamp"] = df["timestamp"].apply(lambda x: datetime.strptime(x, timestamp_format))
+        df["duedate"] = df["duedate"].apply(
+            lambda x: datetime.strptime(x, duedate_format)
+        )
+        df["timestamp"] = df["timestamp"].apply(
+            lambda x: datetime.strptime(x, timestamp_format)
+        )
 
         # Calculate the time difference between submission and due date
         late_time_delta = df["timestamp"] - df["duedate"]
@@ -444,11 +462,16 @@ class nbgrader_grade:
                 )
             return
         if grade is not None:
-            edited = submission.edit(submission={"posted_grade": grade}, comment={"text_comment": text_comment})
+            edited = submission.edit(
+                submission={"posted_grade": grade},
+                comment={"text_comment": text_comment},
+            )
         else:
             edited = submission.edit(comment={"text_comment": text_comment})
         if self.verbosity != 0:
-            print(f"Grade for {bcolors.OKCYAN}{self.canvas_id_to_email[student_id]}{bcolors.ENDC} Posted!")
+            print(
+                f"Grade for {bcolors.OKCYAN}{self.canvas_id_to_email[student_id]}{bcolors.ENDC} Posted!"
+            )
         return edited
 
     def pull_request_details(self):
@@ -489,7 +512,9 @@ class nbgrader_grade:
                         print(pull)
                         print(pull["title"])
                         print(pull["body"])
-                    pr_details[pull["user"]["login"].lower()] = pr_details.get(pull["user"]["login"], "") + text
+                    pr_details[pull["user"]["login"].lower()] = (
+                        pr_details.get(pull["user"]["login"], "") + text
+                    )
         self.pr_details = pr_details
 
     def grade_A1_git(
@@ -539,7 +564,9 @@ class nbgrader_grade:
                 if file.endswith(".ipynb") and "A1" in file:
                     file_path = os.path.join(A1_dir, file)
         except FileNotFoundError:
-            print(f"{student_id} does not have a submission for A1, skipped to the next student")
+            print(
+                f"{student_id} does not have a submission for A1, skipped to the next student"
+            )
 
         student_details = {}
 
@@ -557,13 +584,32 @@ class nbgrader_grade:
         res = [i for i in test_list if any(substring in i for substring in subs)]
         print(res)
         if len(res) != 0:
-            PID_string = [i for i in res if all(substring in i for substring in ["PID", "="])]
-            github_string = [i for i in res if all(substring in i for substring in ["github_username", "="])]
+            PID_string = [
+                i for i in res if all(substring in i for substring in ["PID", "="])
+            ]
+            github_string = [
+                i
+                for i in res
+                if all(substring in i for substring in ["github_username", "="])
+            ]
             if len(PID_string) != 0 and len(github_string) != 0:
-                PID = (PID_string[-1].split("="))[-1].strip().strip("'").strip('"').strip(";").replace("'", "")
-                github_username = (github_string[-1].split("="))[-1].strip().strip("'").strip('"')
+                PID = (
+                    (PID_string[-1].split("="))[-1]
+                    .strip()
+                    .strip("'")
+                    .strip('"')
+                    .strip(";")
+                    .replace("'", "")
+                )
+                github_username = (
+                    (github_string[-1].split("="))[-1].strip().strip("'").strip('"')
+                )
                 print(student_id, PID, github_username)
-                student_details[student_id] = {"pid": PID, "github": github_username, "score": 0}
+                student_details[student_id] = {
+                    "pid": PID,
+                    "github": github_username,
+                    "score": 0,
+                }
 
         print(student_details)
 
@@ -579,7 +625,9 @@ class nbgrader_grade:
                 user_score = 0.5
 
             # Repo exists:
-            if nbgrader_grade.check_git_repo(student_details[student_id]["github"], "COGS108_repo"):
+            if nbgrader_grade.check_git_repo(
+                student_details[student_id]["github"], "COGS108_repo"
+            ):
                 student_details[student_id]["score"] += 0.5
                 print(student_details)
                 repo_score = 0.5
@@ -588,7 +636,9 @@ class nbgrader_grade:
             is_gitignore = nbgrader_grade.check_git_file(
                 student_details[student_id]["github"], "COGS108_repo", ".gitignore"
             )
-            is_readme = nbgrader_grade.check_git_file(student_details[student_id]["github"], "COGS108_repo", "README")
+            is_readme = nbgrader_grade.check_git_file(
+                student_details[student_id]["github"], "COGS108_repo", "README"
+            )
             is_readme = is_readme or nbgrader_grade.check_git_file(
                 student_details[student_id]["github"], "COGS108_repo", "README.txt"
             )
@@ -663,14 +713,18 @@ class nbgrader_grade:
             ValueError: If the nbgrader CSV has not been loaded.
         """
         if self.grades is None:
-            raise ValueError("Nbgrader CSV has not been loaded. Please set it via self.load_grades_csv")
+            raise ValueError(
+                "Nbgrader CSV has not been loaded. Please set it via self.load_grades_csv"
+            )
 
         for student_id, row in self.grades_by_assignment[target_assignment].iterrows():
             if student is not None and student_id not in student:
                 continue
             penalty = False
             # fetch useful information
-            balance = self.calculate_credit_balance(passed_assignments, student_id, default_credit=default_credit)
+            balance = self.calculate_credit_balance(
+                passed_assignments, student_id, default_credit=default_credit
+            )
             late_days = self.get_late_days(target_assignment, student_id)
             score = row["raw_score"]
 
@@ -704,7 +758,12 @@ class nbgrader_grade:
             if post:
                 try:
                     canvas_student_id = self.email_to_canvas_id[student_id]
-                    self._post_grade(grade=score, student_id=canvas_student_id, text_comment=message, force=force)
+                    self._post_grade(
+                        grade=score,
+                        student_id=canvas_student_id,
+                        text_comment=message,
+                        force=force,
+                    )
                     if self.verbosity != 0:
                         print(
                             f"The message for {bcolors.OKCYAN+student_id+bcolors.ENDC} "
